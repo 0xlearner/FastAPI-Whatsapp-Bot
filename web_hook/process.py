@@ -1,4 +1,4 @@
-from tkinter.messagebox import NO
+import json
 from twilio.twiml.messaging_response import MessagingResponse
 from fastapi import Response
 
@@ -8,8 +8,11 @@ from sqlalchemy.sql.expression import select
 from db.models.user import User, Status
 from db.models.order import Order
 from services.get_cake import get_menu, get_price
+from services.post_cake import post_data
 
 cake = {}
+customer_data = {}
+cake_price = {}
 
 
 class Bot_DAL:
@@ -149,36 +152,29 @@ class Bot_DAL:
                 "\n\n*Type*\n\n 1️⃣ To *contact* us \n 2️⃣ To *order* snacks \n 3️⃣ To know our *working hours* \n 4️⃣ "
                 "To get our *address*"
             )
-        elif options == 1:
 
-            price = await get_price(size, flavour, frosting, topping)
+        price = await get_price(size, flavour, frosting, topping)
 
-            response.message(
-                f"Your *{size}* *{flavour}* cake with *{frosting}* frosting and *{topping}* topping will cost *{price}$* \n 1️⃣ To check out.\n0️⃣ Go Back"
-            )
+        response.message(
+            f"Your *{size}* *{flavour}* cake with *{frosting}* frosting and *{topping}* topping will cost *{price}$* \n 1️⃣ To check out.\n0️⃣ Go Back"
+        )
 
-            user.status = Status.get_name_mode
-
-            return price
-
-    async def process_name_mode(self, message, number, response: MessagingResponse):
-        user = await self.fetch_user_by_phone(number)
-        print(user)
         response.message("Please provide your name.")
+
+        user.status = Status.get_name_mode
+
+        return price
+
+    async def process_name_mode(self, message, response: MessagingResponse):
 
         customer = message
 
-        user.status = Status.get_email_mode
-
         return customer
 
-    async def process_email_mode(self, message, number, response: MessagingResponse):
-        user = await self.fetch_user_by_phone(number)
+    async def process_email_mode(self, message, response: MessagingResponse):
         response.message("Please provide your email address.")
 
         customer_email = message
-
-        user.status = Status.ordered_mode
 
         return customer_email
 
@@ -257,7 +253,7 @@ class Bot_DAL:
             cake_frosting = cake["frosting"]
             cake_topping = cake["topping"]
 
-            cake["price"] = await self.confirm_price(
+            cake_price["price"] = await self.confirm_price(
                 message,
                 number,
                 cake_size,
@@ -266,14 +262,25 @@ class Bot_DAL:
                 cake_topping,
                 response,
             )
-            print(cake, cake["price"])
+            print(cake, cake_price, customer_data)
 
         elif user.status == Status.get_name_mode:
-            name = await self.process_name_mode(number, message, response)
-            print(name)
+
+            customer_data["name"] = await self.process_name_mode(message, response)
+            user.status = Status.get_email_mode
 
         elif user.status == Status.get_email_mode:
-            email = await self.process_email_mode(number, message, response)
-            print(email)
+            customer_data["email"] = await self.process_email_mode(message, response)
+            user.status = Status.ordered_mode
+
+        data = {
+            "customer": json.dumps(customer_data),
+            "cake": json.dumps(cake),
+            "price": json.dumps(cake_price),
+        }
+        print(data)
+
+        # resp = await post_data(data)
+        # print(resp.status_code)
 
         return Response(content=str(response), media_type="application/xml")
