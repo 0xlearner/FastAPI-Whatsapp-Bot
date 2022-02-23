@@ -9,3 +9,5 @@ async def post_data(cake):
         resp: Response = await client.post(url, json=cake)
         if resp.status_code != 200:
             print(resp.text, resp.status_code)
+            return True
+    return False
