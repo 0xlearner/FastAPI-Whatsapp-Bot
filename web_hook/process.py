@@ -31,8 +31,9 @@ class Bot_DAL:
         user = await self.db_session.execute(select(User).filter(User.phone == number))
         return user.scalar_one_or_none()
 
-    async def process_flavour_mode(self, message, number, response: MessagingResponse):
-        user = await self.fetch_user_by_phone(number)
+    async def process_flavour_mode(
+        self, message, user: User, response: MessagingResponse
+    ):
         options = self.helper_process(message, response)
 
         if options == 0:
@@ -57,8 +58,7 @@ class Bot_DAL:
 
             return cake_dict["flavour"]
 
-    async def process_size_mode(self, message, number, response: MessagingResponse):
-        user = await self.fetch_user_by_phone(number)
+    async def process_size_mode(self, message, user: User, response: MessagingResponse):
         options = self.helper_process(message, response)
 
         if options == 0:
@@ -85,8 +85,9 @@ class Bot_DAL:
 
             return cake_dict["size"]
 
-    async def process_frosting_mode(self, message, number, response: MessagingResponse):
-        user = await self.fetch_user_by_phone(number)
+    async def process_frosting_mode(
+        self, message, user: User, response: MessagingResponse
+    ):
         options = self.helper_process(message, response)
 
         if options == 0:
@@ -112,8 +113,9 @@ class Bot_DAL:
 
             return cake_dict["frosting"]
 
-    async def process_topping_mode(self, message, number, response: MessagingResponse):
-        user = await self.fetch_user_by_phone(number)
+    async def process_topping_mode(
+        self, message, user: User, response: MessagingResponse
+    ):
         options = self.helper_process(message, response)
 
         if options == 0:
@@ -139,14 +141,13 @@ class Bot_DAL:
     async def confirm_price(
         self,
         message,
-        number,
         size,
         flavour,
         frosting,
         topping,
+        user: User,
         response: MessagingResponse,
     ):
-        user = await self.fetch_user_by_phone(number)
         options = self.helper_process(message, response)
 
         if options == 0:
@@ -157,23 +158,26 @@ class Bot_DAL:
                 "To get our *address*"
             )
 
-        price = await get_price(size, flavour, frosting, topping)
-        cake_price["price"] = price
+        elif message != str(0):
 
-        response.message(
-            f"Your *{size}* *{flavour}* cake with *{frosting}* frosting and *{topping}* topping will cost *{price}$* \n\n\n Enter details to check out.\n\n\n0️⃣ Go Back"
-        )
+            price = await get_price(size, flavour, frosting, topping)
+            cake_price["price"] = price
 
-        response.message("Please provide your name.")
-        user.status = Status.get_name_mode
+            response.message(
+                f"Your *{size}* *{flavour}* cake with *{frosting}* frosting and *{topping}* topping will cost *{price}$* \n\n\n Enter details to check out.\n\n\n0️⃣ Go Back"
+            )
 
-        return cake_price["price"]
+            response.message("Please provide your name.")
+            # print(user.status, type(user.status))
+            user.status = Status.get_name_mode
+            # print(user.status, type(user.status))
 
-    async def process_name_mode(self, message, number, response: MessagingResponse):
-        user = await self.fetch_user_by_phone(number)
-        options = self.helper_process(message, response)
+            return cake_price["price"]
 
-        if options == 0:
+    async def process_name_mode(self, message, user: User, response: MessagingResponse):
+        # options = self.helper_process(message, response)
+
+        if message == str(0):
             user.status = Status.main_mode
             response.message(
                 "You can choose from one of the options below: "
@@ -181,17 +185,18 @@ class Bot_DAL:
                 "To get our *address*"
             )
 
-        customer_data["name"] = message
-        response.message("Please provide your email address.")
-        user.status = Status.get_email_mode
-        return customer_data["name"]
+        else:
 
-    async def process_email_mode(self, message, number, response: MessagingResponse):
+            customer_data["name"] = message
+            response.message("Please provide your email address.")
+            user.status = Status.get_email_mode
+            return customer_data["name"]
 
-        user = await self.fetch_user_by_phone(number)
-        options = self.helper_process(message, response)
+    async def process_email_mode(
+        self, message, user: User, response: MessagingResponse
+    ):
 
-        if options == 0:
+        if message == str(0):
             user.status = Status.main_mode
             response.message(
                 "You can choose from one of the options below: "
@@ -252,19 +257,19 @@ class Bot_DAL:
                 response.message("Please enter a valid response.")
         elif user.status == Status.ordering_mode:
 
-            await self.process_flavour_mode(message, number, response)
+            await self.process_flavour_mode(message, user, response)
 
         elif user.status == Status.size_mode:
 
-            await self.process_size_mode(message, number, response)
+            await self.process_size_mode(message, user, response)
 
         elif user.status == Status.frosting_mode:
 
-            await self.process_frosting_mode(message, number, response)
+            await self.process_frosting_mode(message, user, response)
 
         elif user.status == Status.topping_mode:
 
-            await self.process_topping_mode(message, number, response)
+            await self.process_topping_mode(message, user, response)
 
         elif user.status == Status.price_mode:
 
@@ -275,11 +280,11 @@ class Bot_DAL:
 
             await self.confirm_price(
                 message,
-                number,
                 cake_size,
                 cake_flavour,
                 cake_frosting,
                 cake_topping,
+                user,
                 response,
             )
 
@@ -287,14 +292,14 @@ class Bot_DAL:
 
         elif user.status == Status.get_name_mode:
 
-            await self.process_name_mode(message, number, response)
+            await self.process_name_mode(message, user, response)
 
         elif user.status == Status.get_email_mode:
-            await self.process_email_mode(message, number, response)
+            await self.process_email_mode(message, user, response)
 
             data = {
-                "customer": json.dumps(customer_data),
-                "cake": json.dumps(cake_dict),
+                "customer": customer_data,
+                "cake": cake_dict,
                 "price": cake_price["price"],
             }
             print(data)
