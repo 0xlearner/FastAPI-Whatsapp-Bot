@@ -51,12 +51,14 @@ class Bot_DAL:
             cake_dict["flavour"] = selected_flavour
 
             response.message(
-                f"You can select one of the following cake sizes to order: \n\n1️⃣ Small  \n2️⃣ Medium \n3️⃣ Large  \n0️⃣ Go Back"
+                f"You can select one of the following cake sizes to order: \n\n1️⃣ Small  \n2️⃣ Medium \n3️⃣ Large \n Type 'B' to go one step back  \n0️⃣ Go Back to Main"
             )
 
             user.status = Status.size_mode
 
             return cake_dict["flavour"]
+        else:
+            response.message("Please enter a valid response.")
 
     async def process_size_mode(self, message, user: User, response: MessagingResponse):
         options = self.helper_process(message, response)
@@ -78,12 +80,14 @@ class Bot_DAL:
             frosting = cake["frosting"]
 
             response.message(
-                f"What frosting do you want to pair with it? We have: \n\n1️⃣ {frosting[0].title()}  \n2️⃣ {frosting[1].title()} \n3️⃣ {frosting[2].title()}\n4️⃣ {frosting[3].title()}  \n0️⃣ Go Back"
+                f"What frosting do you want to pair with it? We have: \n\n1️⃣ {frosting[0].title()}  \n2️⃣ {frosting[1].title()} \n3️⃣ {frosting[2].title()}\n4️⃣ {frosting[3].title()}  \n0️⃣ Go Back \n Type 'B' to go one step back"
             )
 
             user.status = Status.frosting_mode
 
             return cake_dict["size"]
+        else:
+            response.message("Please enter a valid response.")
 
     async def process_frosting_mode(
         self, message, user: User, response: MessagingResponse
@@ -106,12 +110,14 @@ class Bot_DAL:
             cake_dict["frosting"] = selected_frosting
 
             response.message(
-                f"Finally, let's pick a topping : \n\n1️⃣ {topping[0].title()}  \n2️⃣ {topping[1].title()} \n3️⃣ {topping[2].title()}\n4️⃣ {topping[3].title()}  \n0️⃣ Go Back"
+                f"Finally, let's pick a topping : \n\n1️⃣ {topping[0].title()}  \n2️⃣ {topping[1].title()} \n3️⃣ {topping[2].title()}\n4️⃣ {topping[3].title()}  \n0️⃣ Go Back \n Type 'B' to go one step back"
             )
 
             user.status = Status.topping_mode
 
             return cake_dict["frosting"]
+        else:
+            response.message("Please enter a valid response.")
 
     async def process_topping_mode(
         self, message, user: User, response: MessagingResponse
@@ -137,6 +143,8 @@ class Bot_DAL:
             user.status = Status.price_mode
 
             return cake_dict["topping"]
+        else:
+            response.message("Please enter a valid response.")
 
     async def confirm_price(
         self,
@@ -195,6 +203,7 @@ class Bot_DAL:
     async def process_email_mode(
         self, message, user: User, response: MessagingResponse
     ):
+        customer_data["email"] = ""
 
         if message == str(0):
             user.status = Status.main_mode
@@ -204,10 +213,15 @@ class Bot_DAL:
                 "To get our *address*"
             )
 
-        customer_data["email"] = message
-        user.status = Status.ordered_mode
+        elif "@" not in message:
+            response.message("Please enter a valid email address.")
 
-        return customer_data["email"]
+        else:
+
+            customer_data["email"] = message
+            user.status = Status.order_review
+
+            return customer_data["email"]
 
     async def process_main_mode(self, message, number, response: MessagingResponse):
         user = await self.fetch_user_by_phone(number)
@@ -261,34 +275,66 @@ class Bot_DAL:
 
         elif user.status == Status.size_mode:
 
-            await self.process_size_mode(message, user, response)
+            if message.lower() == "b":
+                user.status = Status.ordering_mode
+                menu = await get_menu()
+                response.message(
+                    f"You can select one of the following cakes to order: \n\n1️⃣ {menu['flavour'][0].title()}  \n2️⃣ {menu['flavour'][1].title()} \n3️⃣ {menu['flavour'][2].title()}"
+                    f"\n4️⃣ {menu['flavour'][3].title()} \n5️⃣ {menu['flavour'][4].title()} \n0️⃣ Go Back"
+                )
+            else:
+
+                await self.process_size_mode(message, user, response)
 
         elif user.status == Status.frosting_mode:
+            if message.lower() == "b":
+                user.status = Status.size_mode
+                response.message(
+                    f"You can select one of the following cake sizes to order: \n\n1️⃣ Small  \n2️⃣ Medium \n3️⃣ Large \n Type 'B' to go one step back  \n0️⃣ Go Back to Main"
+                )
+            else:
 
-            await self.process_frosting_mode(message, user, response)
+                await self.process_frosting_mode(message, user, response)
 
         elif user.status == Status.topping_mode:
+            if message.lower() == "b":
+                user.status = Status.frosting_mode
+                cake = await get_menu()
+                frosting = cake["frosting"]
 
-            await self.process_topping_mode(message, user, response)
+                response.message(
+                    f"What frosting do you want to pair with it? We have: \n\n1️⃣ {frosting[0].title()}  \n2️⃣ {frosting[1].title()} \n3️⃣ {frosting[2].title()}\n4️⃣ {frosting[3].title()}  \n0️⃣ Go Back"
+                )
+
+            else:
+
+                await self.process_topping_mode(message, user, response)
 
         elif user.status == Status.price_mode:
 
-            cake_flavour = cake_dict["flavour"]
-            cake_size = cake_dict["size"]
-            cake_frosting = cake_dict["frosting"]
-            cake_topping = cake_dict["topping"]
+            if message.lower() == "b":
+                user.status = Status.topping_mode
+                cake = await get_menu()
+                topping = cake["topping"]
+                response.message(
+                    f"Finally, let's pick a topping : \n\n1️⃣ {topping[0].title()}  \n2️⃣ {topping[1].title()} \n3️⃣ {topping[2].title()}\n4️⃣ {topping[3].title()}  \n0️⃣ Go Back"
+                )
+            else:
 
-            await self.confirm_price(
-                message,
-                cake_size,
-                cake_flavour,
-                cake_frosting,
-                cake_topping,
-                user,
-                response,
-            )
+                cake_flavour = cake_dict["flavour"]
+                cake_size = cake_dict["size"]
+                cake_frosting = cake_dict["frosting"]
+                cake_topping = cake_dict["topping"]
 
-            # print(cake, cake_price, customer_data)
+                await self.confirm_price(
+                    message,
+                    cake_size,
+                    cake_flavour,
+                    cake_frosting,
+                    cake_topping,
+                    user,
+                    response,
+                )
 
         elif user.status == Status.get_name_mode:
 
@@ -297,14 +343,39 @@ class Bot_DAL:
         elif user.status == Status.get_email_mode:
             await self.process_email_mode(message, user, response)
 
-            data = {
-                "customer": customer_data,
-                "cake": cake_dict,
-                "price": cake_price["price"],
-            }
-            print(data)
+            cake_flavour = cake_dict["flavour"]
+            cake_size = cake_dict["size"]
+            cake_frosting = cake_dict["frosting"]
+            cake_topping = cake_dict["topping"]
+            price = cake_price["price"]
+            email = customer_data["email"]
+            name = customer_data["name"]
 
-            await post_data(data)
-            print("Done!")
+            if email:
+                response.message(
+                    f"*Review your order and Details:* \n\n\nName: {name} \nEmail: {email} \n\n\n*Cake* \nFlavour: {cake_flavour}\nSize: {cake_size}\nFrosting: {cake_frosting}\nTopping: {cake_topping}\nPrice: {price}$ \n\n\n Tap  *[Y]* to confirm. \n\n Tap  *[N]* to cancel."
+                )
+
+        elif user.status == Status.order_review:
+
+            if message.lower() == "n":
+                user.status = Status.main_mode
+                response.message(
+                    "You can choose from one of the options below: "
+                    "\n\n*Type*\n\n 1️⃣ To *contact* us \n 2️⃣ To *order* snacks \n 3️⃣ To know our *working hours* \n 4️⃣ "
+                    "To get our *address*"
+                )
+            else:
+
+                data = {
+                    "customer": customer_data,
+                    "cake": cake_dict,
+                    "price": cake_price["price"],
+                }
+                print(data)
+
+                await post_data(data)
+                print("Done!")
+                response.message("Thank you for your order!")
 
         return Response(content=str(response), media_type="application/xml")

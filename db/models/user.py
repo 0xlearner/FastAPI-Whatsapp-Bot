@@ -21,7 +21,7 @@ class Status(enum.Enum):
     price_mode = "price_mode"
     get_name_mode = "get_name_mode"
     get_email_mode = "get_email_mode"
-    ordered_mode = "ordered_mode"
+    order_review = "order_review"
 
 
 class User(Base):
