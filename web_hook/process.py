@@ -358,10 +358,10 @@ class Bot_DAL:
 
         elif user.status == Status.order_review:
 
-            if message.lower() == "n":
+            if message.lower() != "y":
                 user.status = Status.main_mode
                 response.message(
-                    "You can choose from one of the options below: "
+                    "*Order cancelled successfully.*You can choose from one of the options below: "
                     "\n\n*Type*\n\n 1️⃣ To *contact* us \n 2️⃣ To *order* snacks \n 3️⃣ To know our *working hours* \n 4️⃣ "
                     "To get our *address*"
                 )
