@@ -3,7 +3,7 @@ import datetime
 from typing import List
 import enum
 
-from sqlalchemy import Column, String, DateTime, orm, Enum
+from sqlalchemy import Column, String, DateTime, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -22,6 +22,7 @@ class Status(enum.Enum):
     get_name_mode = "get_name_mode"
     get_email_mode = "get_email_mode"
     order_review = "order_review"
+    ordered = "ordered"
 
 
 class User(Base):
@@ -31,4 +32,4 @@ class User(Base):
     phone = Column(String, index=True)
     email = Column(String, index=True)
     status = Column("status", Enum(Status))
-    orders: List[Order] = orm.relationship("Order", back_populates="users")
+    orders: List[Order] = relationship("Order", back_populates="users")

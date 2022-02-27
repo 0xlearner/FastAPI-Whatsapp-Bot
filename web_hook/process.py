@@ -1,14 +1,18 @@
-import json
 from twilio.twiml.messaging_response import MessagingResponse
 from fastapi import Response
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import select
+from sqlalchemy import or_
 
+
+from models.cake import Cake
+from models.customer import Customer
+
+from models.order import CakeOrder
 from db.models.user import User, Status
 from db.models.order import Order
 from services.get_cake import get_menu, get_price
-from services.post_cake import post_data
 
 cake_dict = {}
 customer_data = {}
@@ -30,6 +34,25 @@ class Bot_DAL:
     async def fetch_user_by_phone(self, number: str):
         user = await self.db_session.execute(select(User).filter(User.phone == number))
         return user.scalar_one_or_none()
+
+    async def fetch_user(self, number: str, email: str):
+        user = await self.db_session.execute(
+            select(User).filter(or_(User.email == email, User.phone == number))
+        )
+        return user.scalar_one_or_none()
+
+    async def record_order(self, u: Customer, c: Cake, price: float):
+        user = await self.fetch_user(u.number, u.email)
+
+        order = Order(
+            **c.dict(),
+            price=price,
+            user_id=user.id,
+        )
+        self.db_session.add(order)
+        await self.db_session.flush()
+
+        return order
 
     async def process_flavour_mode(
         self, message, user: User, response: MessagingResponse
@@ -194,8 +217,8 @@ class Bot_DAL:
             )
 
         else:
-
             customer_data["name"] = message
+            user.name = customer_data["name"].title()
             response.message("Please provide your email address.")
             user.status = Status.get_email_mode
             return customer_data["name"]
@@ -217,8 +240,8 @@ class Bot_DAL:
             response.message("Please enter a valid email address.")
 
         else:
-
             customer_data["email"] = message
+            user.email = customer_data["email"]
             user.status = Status.order_review
 
             return customer_data["email"]
@@ -350,10 +373,11 @@ class Bot_DAL:
             price = cake_price["price"]
             email = customer_data["email"]
             name = customer_data["name"]
+            customer_data["number"] = number
 
             if email:
                 response.message(
-                    f"*Review your order and Details:* \n\n\nName: {name} \nEmail: {email} \n\n\n*Cake* \nFlavour: {cake_flavour}\nSize: {cake_size}\nFrosting: {cake_frosting}\nTopping: {cake_topping}\nPrice: {price}$ \n\n\n Tap  *[Y]* to confirm. \n\n Tap  *[N]* to cancel."
+                    f"*Review your order and Details:* \n\n\nName: {name} \nEmail: {email} \nPhone: {number} \n\n\n*Cake* \nFlavour: {cake_flavour}\nSize: {cake_size}\nFrosting: {cake_frosting}\nTopping: {cake_topping}\nPrice: {price}$ \n\n\n Tap  *[Y]* to confirm. \n\n Tap  *[N]* to cancel."
                 )
 
         elif user.status == Status.order_review:
@@ -373,9 +397,23 @@ class Bot_DAL:
                     "price": cake_price["price"],
                 }
                 print(data)
-
-                await post_data(data)
                 print("Done!")
-                response.message("Thank you for your order!")
+
+                cake_order = CakeOrder(**data)
+                db_order = await self.record_order(
+                    cake_order.customer, cake_order.cake, cake_order.price
+                )
+                response.message(
+                    f"Thank you for your order!\n\n Your order_id is \n*{db_order.id}*"
+                )
+                user.status = Status.ordered
+
+        elif user.status == Status.ordered:
+            response.message(
+                f"Hi, *{user.name}* thanks for contacting *The Red Velvet* again\nYou can choose from one of the options below: "
+                "\n\n*Type*\n\n 1️⃣ To *contact* us \n 2️⃣ To *order* snacks \n 3️⃣ To know our *working hours* \n 4️⃣ "
+                "To get our *address*"
+            )
+            user.status = Status.main_mode
 
         return Response(content=str(response), media_type="application/xml")

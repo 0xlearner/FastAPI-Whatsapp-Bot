@@ -1,7 +1,7 @@
 import uuid
 import datetime
 
-from sqlalchemy import Column, Float, Integer, String, DateTime, ForeignKey, orm
+from sqlalchemy import Column, Float, Integer, String, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -18,4 +18,4 @@ class Order(Base):
     frosting = Column(String)
     price = Column(Float, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), default=uuid.uuid4)
-    users = orm.relationship("User", back_populates="orders")
+    users = relationship("User", back_populates="orders")
