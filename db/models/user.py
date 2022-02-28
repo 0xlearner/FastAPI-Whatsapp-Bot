@@ -19,6 +19,7 @@ class Status(enum.Enum):
     topping_mode = "topping_mode"
     frosting_mode = "frosting_mode"
     price_mode = "price_mode"
+    img_mode = "imag_mode"
     get_name_mode = "get_name_mode"
     get_email_mode = "get_email_mode"
     order_review = "order_review"

@@ -16,6 +16,7 @@ class Order(Base):
     flavour = Column(String)
     topping = Column(String)
     frosting = Column(String)
+    img_url = Column("photo_url", String(200))
     price = Column(Float, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), default=uuid.uuid4)
     users = relationship("User", back_populates="orders")

@@ -1,5 +1,7 @@
+from typing import Optional
 from twilio.twiml.messaging_response import MessagingResponse
 from fastapi import Response
+import requests
 
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import select
@@ -13,10 +15,12 @@ from models.order import CakeOrder
 from db.models.user import User, Status
 from db.models.order import Order
 from services.get_cake import get_menu, get_price
+from services.image_classifier import get_cake_tags
 
 cake_dict = {}
 customer_data = {}
 cake_price = {}
+cake_images = {}
 
 
 class Bot_DAL:
@@ -28,7 +32,7 @@ class Bot_DAL:
             option = int(message)
             return option
         except:
-            response.message("Please enter a valid response.")
+            response.message("helper-process: Please enter a valid response.")
             return Response(content=str(response), media_type="application/xml")
 
     async def fetch_user_by_phone(self, number: str):
@@ -41,12 +45,15 @@ class Bot_DAL:
         )
         return user.scalar_one_or_none()
 
-    async def record_order(self, u: Customer, c: Cake, price: float):
+    async def record_order(
+        self, u: Customer, c: Cake, price: float, img_url: Optional[str] = None
+    ):
         user = await self.fetch_user(u.number, u.email)
 
         order = Order(
             **c.dict(),
             price=price,
+            img_url=img_url,
             user_id=user.id,
         )
         self.db_session.add(order)
@@ -161,13 +168,53 @@ class Bot_DAL:
             selected_topping = topping[options - 1]
             cake_dict["topping"] = selected_topping
 
-            response.message(f"Tap  1️⃣ to confirm.\n0️⃣ Go Back")
+            response.message(
+                f"*[Optional]* \n\n How would you like your cake to look like?\n You can send us your refernce image.\n\n1️⃣ To skip. \n0️⃣ Go Back"
+            )
 
-            user.status = Status.price_mode
+            user.status = Status.img_mode
 
             return cake_dict["topping"]
         else:
-            response.message("Please enter a valid response.")
+            response.message("topping-mode: Please enter a valid response.")
+
+    async def process_img_mode(
+        self,
+        message,
+        user: User,
+        response: MessagingResponse,
+        media_msg=None,
+    ):
+        # options = self.helper_process(message, response)
+
+        if message == str(0):
+            user.status = Status.main_mode
+            response.message(
+                "You can choose from one of the options below: "
+                "\n\n*Type*\n\n 1️⃣ To *contact* us \n 2️⃣ To *order* snacks \n 3️⃣ To know our *working hours* \n 4️⃣ "
+                "To get our *address*"
+            )
+
+        elif message == str(1):
+            user.status = Status.price_mode
+            response.message(f"Tap  1️⃣ to confirm.\n0️⃣ Go Back")
+
+        elif media_msg:
+            print(media_msg)
+            if media_msg not in cake_images:
+                req_img = requests.get(media_msg)
+                img_url = req_img.url
+                relevant_tags = get_cake_tags(img_url)
+                if "cake" in relevant_tags:
+                    cake_images["img"] = img_url
+                    response.message("Picture Received!\n1️⃣ to continue.")
+                    user.status = Status.price_mode
+                    return cake_images["img"]
+                else:
+                    response.message("Please send a real cake picture\n\n1️⃣ to skip")
+
+        else:
+            response.message("img-mode: Please enter a valid response.")
 
     async def confirm_price(
         self,
@@ -246,7 +293,9 @@ class Bot_DAL:
 
             return customer_data["email"]
 
-    async def process_main_mode(self, message, number, response: MessagingResponse):
+    async def process_main_mode(
+        self, message, number, media_msg, response: MessagingResponse
+    ):
         user = await self.fetch_user_by_phone(number)
 
         if bool(user) == False:
@@ -333,6 +382,9 @@ class Bot_DAL:
 
                 await self.process_topping_mode(message, user, response)
 
+        elif user.status == Status.img_mode:
+            await self.process_img_mode(message, user, response, media_msg)
+
         elif user.status == Status.price_mode:
 
             if message.lower() == "b":
@@ -382,31 +434,42 @@ class Bot_DAL:
 
         elif user.status == Status.order_review:
 
-            if message.lower() != "y":
+            if message.lower() != "y" and message.lower() == "n":
                 user.status = Status.main_mode
                 response.message(
-                    "*Order cancelled successfully.*You can choose from one of the options below: "
+                    "*Order cancelled successfully*.You can choose from one of the options below: "
                     "\n\n*Type*\n\n 1️⃣ To *contact* us \n 2️⃣ To *order* snacks \n 3️⃣ To know our *working hours* \n 4️⃣ "
                     "To get our *address*"
                 )
-            else:
+
+            elif message.lower() == "y":
+                try:
+                    cake_image = cake_images["img"]
+                except:
+                    cake_image = None
 
                 data = {
                     "customer": customer_data,
                     "cake": cake_dict,
                     "price": cake_price["price"],
+                    "ref_img": cake_image,
                 }
                 print(data)
                 print("Done!")
 
                 cake_order = CakeOrder(**data)
                 db_order = await self.record_order(
-                    cake_order.customer, cake_order.cake, cake_order.price
+                    cake_order.customer,
+                    cake_order.cake,
+                    cake_order.price,
+                    cake_order.ref_img,
                 )
                 response.message(
                     f"Thank you for your order!\n\n Your order_id is \n*{db_order.id}*"
                 )
                 user.status = Status.ordered
+            else:
+                response.message("order-review: Please enter a valid response.")
 
         elif user.status == Status.ordered:
             response.message(

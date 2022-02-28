@@ -16,6 +16,8 @@ class Settings:
     POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", 5432)
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "bakery")
     DATABASE_URL = f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASS}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    CLARIFAI_API_KEY = os.getenv("CLARIFI_API_KEY")
 
 
 settings = Settings()
+print(settings.CLARIFAI_API_KEY)

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,7 +18,9 @@ class UserDAL:
         user = await self.db_session.execute(select(User).filter(User.email == email))
         return user.scalar_one_or_none()
 
-    async def record_order(self, u: Customer, c: Cake, price: float):
+    async def record_order(
+        self, u: Customer, c: Cake, price: float, img_url: Optional[str] = None
+    ):
         user = await self.fetch_user_by_email(u.email)
 
         if not user:
@@ -26,6 +30,7 @@ class UserDAL:
 
         order = Order(
             **c.dict(),
+            img_url=img_url,
             price=price,
             user_id=user.id,
         )
