@@ -10,7 +10,7 @@ from db.session import engine
 from db.base import Base
 
 from api import order_api
-from views import home
+from views import home, admin
 from web_hook import bot
 
 api = fastapi.FastAPI()
@@ -47,7 +47,8 @@ def configure():
 def configure_routing():
     api.mount("/static", StaticFiles(directory="static"), name="static")
     api.include_router(home.router)
-    api.include_router(order_api.router)
+    api.include_router(admin.router)
+    # api.include_router(order_api.router)
     api.include_router(bot.router)
 
 

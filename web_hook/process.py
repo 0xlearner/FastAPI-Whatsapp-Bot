@@ -186,6 +186,9 @@ class Bot_DAL:
         media_msg=None,
     ):
         # options = self.helper_process(message, response)
+        if media_msg != None:
+            req_img = requests.get(media_msg)
+            img_url = req_img.url
 
         if message == str(0):
             user.status = Status.main_mode
@@ -201,9 +204,7 @@ class Bot_DAL:
 
         elif media_msg:
             print(media_msg)
-            if media_msg not in cake_images:
-                req_img = requests.get(media_msg)
-                img_url = req_img.url
+            if img_url not in cake_images:
                 relevant_tags = get_cake_tags(img_url)
                 if "cake" in relevant_tags:
                     cake_images["img"] = img_url
