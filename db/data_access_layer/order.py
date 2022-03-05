@@ -20,8 +20,12 @@ class CustomerOrder:
         return orders.scalars().all()
 
     async def find_order_by_id(self, order_id) -> Optional[Order]:
-        order = await self.db_session.get(Order, order_id)
-        return order
+        order = await self.db_session.execute(
+            select(Order)
+            .options(selectinload(Order.users))
+            .filter(Order.id == order_id)
+        )
+        return order.scalar_one_or_none()
 
     async def fulfill_order(self, order_id) -> bool:
         order = await self.find_order_by_id(order_id)

@@ -1,4 +1,3 @@
-from uuid import UUID
 import fastapi
 from fastapi import Request, HTTPException, status
 from fastapi import responses
@@ -8,6 +7,7 @@ from starlette.templating import Jinja2Templates
 
 from db.depends import get_orders_db
 from db.data_access_layer.order import CustomerOrder
+from services.whatsapp_service import send_cake_ready
 
 
 templates = Jinja2Templates("templates")
@@ -35,4 +35,7 @@ async def fulfill(
             detail=f"Order with id {order_id} does not exist",
         )
     await user_orders.fulfill_order(order_id)
+
+    # Send whatsapp message to notify the customer!
+    send_cake_ready(order)
     return responses.RedirectResponse("/admin")

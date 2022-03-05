@@ -468,7 +468,7 @@ class Bot_DAL:
                 )
 
                 response.message(
-                    f"Thank you for your order!\n\n Your order_id is \n*{db_order.id}*.Please check your email for Receipt."
+                    f"Thank you for your order!\n\n Your order_id is \n*{db_order.id}*.\nPlease check your email for Receipt."
                 )
                 send_order_receipt(db_order)
 

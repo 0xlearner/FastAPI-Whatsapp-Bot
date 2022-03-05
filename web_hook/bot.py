@@ -19,7 +19,7 @@ async def web_hook(request: Request, data: Bot_DAL = Depends(get_bot_db)):
 
     incoming_msg = await request.form()
     message = incoming_msg.get("Body").strip().lower()
-    number = incoming_msg.get("From").replace("whatsapp:", "")
+    number = incoming_msg.get("From")
     media_msg = incoming_msg.get("MediaUrl0")
     response = MessagingResponse()
 
