@@ -16,6 +16,7 @@ from db.models.user import User, Status
 from db.models.order import Order
 from services.get_cake import get_menu, get_price
 from services.image_classifier import get_cake_tags
+from services.email_service import send_order_receipt
 
 cake_dict = {}
 customer_data = {}
@@ -465,9 +466,12 @@ class Bot_DAL:
                     cake_order.price,
                     cake_order.ref_img,
                 )
+
                 response.message(
-                    f"Thank you for your order!\n\n Your order_id is \n*{db_order.id}*"
+                    f"Thank you for your order!\n\n Your order_id is \n*{db_order.id}*.Please check your email for Receipt."
                 )
+                send_order_receipt(db_order)
+
                 user.status = Status.ordered
             else:
                 response.message("order-review: Please enter a valid response.")
